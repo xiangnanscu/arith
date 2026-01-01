@@ -1,0 +1,7 @@
+{
+  "name": "arith",
+  "version": "1.0.0",
+  "private": true,
+  "description": "幼儿四则运算练习应用",
+  "type": "module"
+}
