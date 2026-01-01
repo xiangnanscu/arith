@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { OpType, QuizConfig, MathProblem, QuizHistoryItem, AppView, TrainingStep } from './types';
 import { OPERATION_COLORS, OPERATION_NAMES } from './constants';
 import { generateQuiz, generateTrainingProblem } from './services/mathEngine';
@@ -44,7 +44,28 @@ const App: React.FC = () => {
   const [combineInput, setCombineInput] = useState('');
   const [finalInput, setFinalInput] = useState('');
   const [trainingError, setTrainingError] = useState<string | null>(null);
-  const [errorBoxIdx, setErrorBoxIdx] = useState<number | null>(null); // 0 for left, 1 for right, 2 for combine, 3 for final
+  const [errorBoxIdx, setErrorBoxIdx] = useState<number | null>(null); 
+
+  // Responsive scaling for Training view
+  const [trainingScale, setTrainingScale] = useState(1);
+
+  useEffect(() => {
+    if (view === AppView.TRAINING) {
+      const handleResize = () => {
+        const width = window.innerWidth;
+        const padding = 40; // Total horizontal padding/margin to reserve
+        const baseWidth = 460; // CONTAINER_WIDTH from renderTraining
+        if (width < baseWidth + padding) {
+          setTrainingScale((width - padding) / baseWidth);
+        } else {
+          setTrainingScale(1);
+        }
+      };
+      handleResize();
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, [view]);
 
   const goToMenu = () => {
     setQuizProblems([]);
@@ -53,7 +74,20 @@ const App: React.FC = () => {
     setView(AppView.MENU);
   };
 
+  const toggleOperation = (op: OpType) => {
+    setConfig(prev => {
+      const current = prev.selectedOperations;
+      if (current.includes(op)) {
+        if (current.length === 1) return prev;
+        return { ...prev, selectedOperations: current.filter(o => o !== op) };
+      } else {
+        return { ...prev, selectedOperations: [...current, op] };
+      }
+    });
+  };
+
   const startQuiz = () => {
+    if (config.selectedOperations.length === 0) return;
     const problems = generateQuiz(config.questionCount, config.selectedOperations);
     setQuizProblems(problems);
     setCurrentProblemIndex(0);
@@ -144,17 +178,14 @@ const App: React.FC = () => {
   const validateTrainingStep = () => {
     if (!trainingProblem) return;
     const { num1, num2 } = trainingProblem;
-
     if (trainingStep === TrainingStep.HOW_TO_SPLIT) {
       const s1 = parseInt(splitInputs[0]);
       const s2 = parseInt(splitInputs[1]);
       const needed = 20 - num1;
-      
       if (isNaN(s1) || isNaN(s2)) {
         setTrainingError("要把两个框框都填上数字哦！ 🤔");
         return;
       }
-      
       if (s1 === needed && s1 + s2 === num2) {
         setTrainingError(null);
         setErrorBoxIdx(null);
@@ -220,32 +251,25 @@ const App: React.FC = () => {
   const renderTraining = () => {
     if (!trainingProblem) return null;
     const { num1, num2 } = trainingProblem;
-
     const BOX_SIZE = 96;
     const HALF_BOX = BOX_SIZE / 2;
     const CONTAINER_WIDTH = 460;
-    
     const COL1_X = 0;
     const COL2_X = 182;
     const COL3_X = 364;
-    
     const ROW1_Y = 0;
     const ROW2_Y = 180;
     const ROW3_Y = 380;
     const ROW4_Y = 640;
-
     const box1C = { x: COL1_X + HALF_BOX, y: ROW1_Y + HALF_BOX };
     const box2C = { x: COL3_X + HALF_BOX, y: ROW1_Y + HALF_BOX };
     const s1C = { x: COL2_X + HALF_BOX, y: ROW2_Y + HALF_BOX };
     const s2C = { x: COL3_X + HALF_BOX, y: ROW2_Y + HALF_BOX };
-    
     const combineBoxX = (COL1_X + COL2_X) / 2;
     const c10C = { x: combineBoxX + HALF_BOX, y: ROW3_Y + HALF_BOX };
     const dropC = { x: COL3_X + HALF_BOX, y: ROW3_Y + HALF_BOX };
-    
     const finalMidX = (c10C.x + dropC.x) / 2;
     const finalC = { x: finalMidX, y: ROW4_Y + HALF_BOX };
-
     const STYLE_TEN = "bg-green-500 text-white border-green-600";
     const STYLE_REMAINDER = "bg-amber-400 text-white border-amber-500";
 
@@ -268,13 +292,17 @@ const App: React.FC = () => {
            <h2 className="text-2xl font-black text-amber-500">凑二十法专项练习</h2>
            <div className="w-20"></div>
         </div>
-
         <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-start justify-items-center">
-           
-           <div className="bg-white rounded-[4rem] shadow-2xl p-10 pt-16 min-h-[950px] w-full max-w-[580px] flex flex-col items-center relative border-8 border-white overflow-visible">
-              
-              <div className="relative" style={{ width: CONTAINER_WIDTH, height: 780 }}>
-                
+           <div className="bg-white rounded-[4rem] shadow-2xl p-10 pt-16 min-h-[950px] w-full max-w-[580px] flex flex-col items-center relative border-8 border-white overflow-hidden lg:overflow-visible">
+              <div 
+                className="relative transition-transform duration-300 ease-out" 
+                style={{ 
+                  width: CONTAINER_WIDTH, 
+                  height: 780 * trainingScale,
+                  transform: `scale(${trainingScale})`,
+                  transformOrigin: 'top center'
+                }}
+              >
                 <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible" style={{ zIndex: 0 }}>
                   {trainingStep >= TrainingStep.HOW_TO_SPLIT && (
                     <g>
@@ -282,7 +310,6 @@ const App: React.FC = () => {
                       <path d={`M ${box2C.x} ${box2C.y + HALF_BOX} L ${s2C.x} ${s2C.y - HALF_BOX}`} stroke="#fbbf24" strokeWidth="10" fill="none" strokeLinecap="round" />
                     </g>
                   )}
-
                   {trainingStep >= TrainingStep.COMBINE_TEN && (
                     <g>
                       <path d={`M ${box1C.x} ${box1C.y + HALF_BOX} V ${c10C.y - 120} H ${c10C.x}`} stroke="#22c55e" strokeWidth="8" strokeOpacity="0.4" fill="none" strokeLinecap="round" strokeDasharray="12 12" />
@@ -290,11 +317,9 @@ const App: React.FC = () => {
                       <path d={`M ${c10C.x} ${c10C.y - 120} V ${c10C.y - HALF_BOX}`} stroke="#22c55e" strokeWidth="8" fill="none" strokeLinecap="round" />
                     </g>
                   )}
-
                   {trainingStep >= TrainingStep.COMBINE_TEN && (
                     <path d={`M ${s2C.x} ${s2C.y + HALF_BOX} V ${dropC.y - HALF_BOX}`} stroke="#fbbf24" strokeWidth="8" fill="none" strokeLinecap="round" strokeDasharray="12 12" />
                   )}
-
                   {trainingStep >= TrainingStep.FINAL_ADD && (
                     <g>
                       <path d={`M ${c10C.x} ${c10C.y + HALF_BOX} V ${finalC.y - 120} H ${finalC.x}`} stroke="#22c55e" strokeWidth="8" fill="none" strokeLinecap="round" strokeDasharray="12 12" />
@@ -303,74 +328,30 @@ const App: React.FC = () => {
                     </g>
                   )}
                 </svg>
-
-                <MathBox 
-                  value={num1} 
-                  style={{ position: 'absolute', left: COL1_X, top: ROW1_Y }}
-                  color={STYLE_TEN}
-                />
+                <MathBox value={num1} style={{ position: 'absolute', left: COL1_X, top: ROW1_Y }} color={STYLE_TEN} />
                 <Operator char="+" style={{ position: 'absolute', left: COL1_X + BOX_SIZE, top: ROW1_Y, width: COL3_X - (COL1_X + BOX_SIZE), height: BOX_SIZE }} />
-                <MathBox 
-                  value={num2} 
-                  style={{ position: 'absolute', left: COL3_X, top: ROW1_Y }}
-                  color={STYLE_REMAINDER}
-                  highlight={trainingStep === TrainingStep.CHOOSE_WHICH}
-                  onClick={() => { if(trainingStep === TrainingStep.CHOOSE_WHICH) { setTrainingStep(TrainingStep.HOW_TO_SPLIT); setActiveSplitIdx(0); }}}
-                />
-
+                <MathBox value={num2} style={{ position: 'absolute', left: COL3_X, top: ROW1_Y }} color={STYLE_REMAINDER} highlight={trainingStep === TrainingStep.CHOOSE_WHICH} onClick={() => { if(trainingStep === TrainingStep.CHOOSE_WHICH) { setTrainingStep(TrainingStep.HOW_TO_SPLIT); setActiveSplitIdx(0); }}} />
                 {trainingStep >= TrainingStep.HOW_TO_SPLIT && (
                   <>
-                    <MathBox 
-                      value={splitInputs[0] || (activeSplitIdx === 0 ? '?' : '')}
-                      style={{ position: 'absolute', left: COL2_X, top: ROW2_Y }}
-                      color={STYLE_TEN}
-                      active={activeSplitIdx === 0}
-                      error={errorBoxIdx === 0}
-                      onClick={() => trainingStep === TrainingStep.HOW_TO_SPLIT && setActiveSplitIdx(0)}
-                    />
-                    <MathBox 
-                      value={splitInputs[1] || (activeSplitIdx === 1 ? '?' : '')}
-                      style={{ position: 'absolute', left: COL3_X, top: ROW2_Y }}
-                      color={STYLE_REMAINDER}
-                      active={activeSplitIdx === 1}
-                      error={errorBoxIdx === 1}
-                      onClick={() => trainingStep === TrainingStep.HOW_TO_SPLIT && setActiveSplitIdx(1)}
-                    />
+                    <MathBox value={splitInputs[0] || (activeSplitIdx === 0 ? '?' : '')} style={{ position: 'absolute', left: COL2_X, top: ROW2_Y }} color={STYLE_TEN} active={activeSplitIdx === 0} error={errorBoxIdx === 0} onClick={() => trainingStep === TrainingStep.HOW_TO_SPLIT && setActiveSplitIdx(0)} />
+                    <MathBox value={splitInputs[1] || (activeSplitIdx === 1 ? '?' : '')} style={{ position: 'absolute', left: COL3_X, top: ROW2_Y }} color={STYLE_REMAINDER} active={activeSplitIdx === 1} error={errorBoxIdx === 1} onClick={() => trainingStep === TrainingStep.HOW_TO_SPLIT && setActiveSplitIdx(1)} />
                   </>
                 )}
-
                 {trainingStep >= TrainingStep.COMBINE_TEN && (
                   <>
                     <Operator char="+" style={{ position: 'absolute', left: c10C.x - 40, top: c10C.y - 210, width: 80, height: 80, fontSize: '64px' }} />
-                    <MathBox 
-                      value={combineInput || '?'} 
-                      style={{ position: 'absolute', left: combineBoxX, top: ROW3_Y }}
-                      color={STYLE_TEN}
-                      highlight={trainingStep === TrainingStep.COMBINE_TEN}
-                      error={errorBoxIdx === 2}
-                    />
+                    <MathBox value={combineInput || '?'} style={{ position: 'absolute', left: combineBoxX, top: ROW3_Y }} color={STYLE_TEN} highlight={trainingStep === TrainingStep.COMBINE_TEN} error={errorBoxIdx === 2} />
                     <Operator char="+" style={{ position: 'absolute', left: combineBoxX + BOX_SIZE, top: ROW3_Y, width: COL3_X - (combineBoxX + BOX_SIZE), height: BOX_SIZE }} />
-                    <MathBox 
-                      value={splitInputs[1]} 
-                      style={{ position: 'absolute', left: COL3_X, top: ROW3_Y }}
-                      color={STYLE_REMAINDER}
-                    />
+                    <MathBox value={splitInputs[1]} style={{ position: 'absolute', left: COL3_X, top: ROW3_Y }} color={STYLE_REMAINDER} />
                   </>
                 )}
-
                 {trainingStep >= TrainingStep.FINAL_ADD && (
                   <div className="absolute w-full" style={{ left: finalMidX - HALF_BOX, top: ROW4_Y }}>
-                    <MathBox 
-                      value={finalInput || '?'} 
-                      color={trainingStep === TrainingStep.SUCCESS ? 'bg-indigo-600 text-white shadow-xl border-indigo-700' : 'bg-white border-indigo-100 text-indigo-400'}
-                      active={trainingStep === TrainingStep.FINAL_ADD}
-                      error={errorBoxIdx === 3}
-                    />
+                    <MathBox value={finalInput || '?'} color={trainingStep === TrainingStep.SUCCESS ? 'bg-indigo-600 text-white shadow-xl border-indigo-700' : 'bg-white border-indigo-100 text-indigo-400'} active={trainingStep === TrainingStep.FINAL_ADD} error={errorBoxIdx === 3} />
                   </div>
                 )}
               </div>
-
-              <div className="mt-auto w-full max-sm pt-4 flex flex-col items-center">
+              <div className="mt-auto w-full max-sm pt-4 flex flex-col items-center z-10">
                  {trainingStep === TrainingStep.HOW_TO_SPLIT && (
                     <button onClick={validateTrainingStep} className="w-full max-w-[320px] py-6 bg-amber-500 text-white rounded-3xl font-black text-2xl shadow-lg transform active:scale-95 transition-all">确认拆分! ✓</button>
                  )}
@@ -400,14 +381,8 @@ const App: React.FC = () => {
                  )}
               </div>
            </div>
-
            <div className="flex flex-col items-center w-full max-w-[500px]">
-              <NumberPad 
-                disabled={trainingStep === TrainingStep.CHOOSE_WHICH || trainingStep === TrainingStep.SUCCESS} 
-                onPress={handleTrainingKeyPad} 
-                onDelete={handleTrainingDelete} 
-                onSubmit={validateTrainingStep} 
-              />
+              <NumberPad disabled={trainingStep === TrainingStep.CHOOSE_WHICH || trainingStep === TrainingStep.SUCCESS} onPress={handleTrainingKeyPad} onDelete={handleTrainingDelete} onSubmit={validateTrainingStep} />
               <div className="mt-10 p-8 bg-white/60 rounded-[3rem] border-4 border-dashed border-amber-200 text-center w-full shadow-sm">
                  <p className={`text-xl leading-relaxed font-bold ${trainingError ? 'text-red-500' : 'text-slate-400'}`}>
                     {trainingError ? trainingError : (
@@ -428,40 +403,65 @@ const App: React.FC = () => {
   };
 
   const renderMenu = () => (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 gap-10">
-      <div className="text-center space-y-4">
-        <h1 className="text-7xl font-black text-indigo-500 tracking-tight">数学小天才</h1>
-        <p className="text-slate-400 text-xl font-bold">快乐学习，开启智慧之门！ 🌟</p>
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 gap-8 overflow-y-auto">
+      <div className="text-center space-y-2">
+        <h1 className="text-6xl font-black text-indigo-600 tracking-tight">数学小天才</h1>
+        <p className="text-slate-400 text-lg font-bold">快乐学习，开启智慧之门！ 🌟</p>
+      </div>
+
+      <div className="w-full max-w-2xl bg-white/50 backdrop-blur-md p-8 rounded-[3.5rem] shadow-xl border-4 border-white space-y-6">
+        <h3 className="text-center text-slate-500 font-black text-xl">请选择想要测试的内容：</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[OpType.ADD, OpType.SUB, OpType.MUL, OpType.DIV].map(op => {
+            const isSelected = config.selectedOperations.includes(op);
+            return (
+              <button
+                key={op}
+                onClick={() => toggleOperation(op)}
+                className={`
+                  p-4 rounded-3xl flex flex-col items-center gap-2 transition-all duration-300
+                  ${isSelected 
+                    ? `${OPERATION_COLORS[op]} text-white scale-105 shadow-lg ring-4 ring-offset-2 ring-indigo-300` 
+                    : 'bg-white text-slate-400 border-2 border-slate-100 hover:bg-slate-50'
+                  }
+                `}
+              >
+                <span className="text-4xl font-black">{op}</span>
+                <span className="text-sm font-bold">{OPERATION_NAMES[op]}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl">
         <button
           onClick={startQuiz}
-          className="p-10 bg-indigo-500 text-white rounded-[3rem] shadow-2xl hover:scale-105 transition-all flex flex-col items-center gap-6 group"
+          className="p-8 bg-indigo-500 text-white rounded-[3rem] shadow-2xl hover:scale-105 transition-all flex flex-col items-center gap-4 group"
         >
-          <span className="text-7xl group-hover:rotate-12 transition-transform">📝</span>
-          <span className="text-3xl font-black">综合测试</span>
+          <span className="text-6xl group-hover:rotate-12 transition-transform">📝</span>
+          <span className="text-2xl font-black">开始测试</span>
         </button>
         <button
           onClick={startTraining}
-          className="p-10 bg-amber-400 text-white rounded-[3rem] shadow-2xl hover:scale-105 transition-all flex flex-col items-center gap-6 group"
+          className="p-8 bg-amber-400 text-white rounded-[3rem] shadow-2xl hover:scale-105 transition-all flex flex-col items-center gap-4 group"
         >
-          <span className="text-7xl group-hover:scale-110 transition-transform">🧠</span>
-          <span className="text-3xl font-black">凑十专项</span>
+          <span className="text-6xl group-hover:scale-110 transition-transform">🧠</span>
+          <span className="text-2xl font-black">凑十专项</span>
         </button>
         <button
           onClick={() => setView(AppView.HISTORY)}
-          className="p-10 bg-white text-slate-600 rounded-[3rem] shadow-xl hover:scale-105 transition-all flex flex-col items-center gap-6 border-4 border-slate-50"
+          className="p-8 bg-white text-slate-600 rounded-[3rem] shadow-xl hover:scale-105 transition-all flex flex-col items-center gap-4 border-4 border-slate-50"
         >
-          <span className="text-7xl">📜</span>
-          <span className="text-3xl font-black">挑战记录</span>
+          <span className="text-6xl">📜</span>
+          <span className="text-2xl font-black">挑战记录</span>
         </button>
         <button
           onClick={() => setShowSettings(true)}
-          className="p-10 bg-white text-slate-600 rounded-[3rem] shadow-xl hover:scale-105 transition-all flex flex-col items-center gap-6 border-4 border-slate-50"
+          className="p-8 bg-white text-slate-600 rounded-[3rem] shadow-xl hover:scale-105 transition-all flex flex-col items-center gap-4 border-4 border-slate-50"
         >
-          <span className="text-7xl">⚙️</span>
-          <span className="text-3xl font-black">系统设置</span>
+          <span className="text-6xl">⚙️</span>
+          <span className="text-2xl font-black">测试设置</span>
         </button>
       </div>
 
@@ -491,13 +491,13 @@ const App: React.FC = () => {
           </div>
           <div className="font-bold text-2xl text-slate-600">{currentProblemIndex + 1} / {quizProblems.length}</div>
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center p-6 gap-12">
-          <div className="w-full max-w-3xl bg-white rounded-[4rem] shadow-2xl p-16 flex flex-col items-center animate-bounce-in border-8 border-white">
-             <div className="flex items-center gap-8 text-[8rem] font-black text-slate-800 leading-none">
+        <div className="flex-1 flex flex-col items-center justify-center p-6 gap-8">
+          <div className="w-full max-w-3xl bg-white rounded-[4rem] shadow-2xl p-12 flex flex-col items-center animate-bounce-in border-8 border-white">
+             <div className="flex items-center gap-6 text-[7rem] font-black text-slate-800 leading-none">
                 <span>{problem.num1}</span>
-                <span className="text-black">{problem.operation}</span>
+                <span className="text-indigo-500">{problem.operation}</span>
                 <span>{problem.num2}</span>
-                <span className="text-black">=</span>
+                <span className="text-indigo-500">=</span>
                 <div className={`min-w-[1.5em] text-center border-b-[12px] transition-colors duration-200 ${currentInput ? 'text-indigo-600 border-indigo-600' : 'text-slate-200 border-slate-100'}`}>
                   {currentInput || '?'}
                 </div>
@@ -577,7 +577,6 @@ const App: React.FC = () => {
            </div>
         </div>
       )}
-
       {selectedReviewProblem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-fade-in">
           <div className="bg-white rounded-[4rem] p-10 w-[95vw] max-w-6xl shadow-2xl relative flex flex-col max-h-[90vh] border-8 border-white">
