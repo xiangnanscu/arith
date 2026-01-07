@@ -1,5 +1,5 @@
 {
-  "name": "四则运算",
-  "description": "A playful, visual arithmetic practice application for toddlers featuring dynamic visualizations, a 'make-ten' strategy for addition, and AI-powered tutoring explanations..",
+  "name": "数学小天才",
+  "description": "专门为幼儿设计的趣味四则运算测试应用，包含加减乘除练习与乘法口诀表，配以生动的图形化提示，让数学学习简单又快乐。",
   "requestFramePermissions": []
 }
