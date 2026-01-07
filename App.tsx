@@ -580,7 +580,13 @@ const App: React.FC = () => {
       {selectedReviewProblem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-fade-in">
           <div className="bg-white rounded-[4rem] p-10 w-[95vw] max-w-6xl shadow-2xl relative flex flex-col max-h-[90vh] border-8 border-white">
-             <button onClick={() => setSelectedReviewProblem(null)} className="absolute top-6 right-6 p-4 bg-slate-100 rounded-full z-10 hover:bg-slate-200 transition-colors">✕</button>
+             {/* 右上角关闭按钮优化为红色 */}
+             <button 
+               onClick={() => setSelectedReviewProblem(null)} 
+               className="absolute top-6 right-6 p-4 bg-red-500 text-white rounded-full z-10 hover:bg-red-600 transition-colors shadow-lg"
+             >
+               ✕
+             </button>
              <div className="overflow-y-auto space-y-12 py-4">
                 <div className="flex justify-center scale-110">
                    <Visualizer num1={selectedReviewProblem.num1} num2={selectedReviewProblem.num2} operation={selectedReviewProblem.operation} showResult={true} />

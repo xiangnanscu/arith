@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { OpType } from '../types';
 
@@ -107,36 +108,37 @@ const Visualizer: React.FC<VisualizerProps> = ({ num1, num2, operation, showResu
 
   // --- MULTIPLICATION: Grid/Array with Headers ---
   if (operation === OpType.MUL) {
+    // 逻辑优化：num1 为每行个数，num2 为行数
     return (
       <div className="flex flex-col items-center gap-4 p-6 bg-white rounded-[2rem] border-4 border-amber-100 shadow-sm">
          <div className="text-amber-600 font-bold tracking-wide text-lg">
-           {num1} 行，每行 {num2} 个
+           一共 {num2} 行，每行 {num1} 个
         </div>
         <div className="p-4 bg-amber-50 rounded-xl border-2 border-amber-200 overflow-x-auto max-w-full">
             <div 
                 className="grid gap-2"
                 style={{ 
-                    // extra column for row numbers
-                    gridTemplateColumns: `auto repeat(${num2}, minmax(0, 1fr))` 
+                    // 每一列对应 num1 中的一个
+                    gridTemplateColumns: `auto repeat(${num1}, minmax(0, 1fr))` 
                 }}
             >
-                {/* Header Row (Column Numbers) */}
-                <div className="w-8 h-8 sm:w-10 sm:h-10"></div> {/* Empty top-left corner */}
-                {Array.from({ length: num2 }).map((_, col) => (
+                {/* Header Row (Column Numbers 1 to num1) */}
+                <div className="w-8 h-8 sm:w-10 sm:h-10"></div>
+                {Array.from({ length: num1 }).map((_, col) => (
                     <div key={`col-${col}`} className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-amber-200/50 rounded-lg text-amber-700 font-bold text-lg">
                         {col + 1}
                     </div>
                 ))}
 
-                {/* Rows with labels */}
-                {Array.from({ length: num1 }).map((_, row) => (
+                {/* Rows with labels (Row 1 to num2) */}
+                {Array.from({ length: num2 }).map((_, row) => (
                     <React.Fragment key={`row-${row}`}>
                         {/* Row Number Label */}
                         <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-amber-200/50 rounded-lg text-amber-700 font-bold text-lg">
                             {row + 1}
                         </div>
-                        {/* Dots for this row */}
-                        {Array.from({ length: num2 }).map((_, col) => (
+                        {/* Dots for this row (Total num1 dots per row) */}
+                        {Array.from({ length: num1 }).map((_, col) => (
                             <Dot key={`dot-${row}-${col}`} color="bg-amber-400" />
                         ))}
                     </React.Fragment>

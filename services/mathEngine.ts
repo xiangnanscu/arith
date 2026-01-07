@@ -44,8 +44,9 @@ const generateProblemDatabase = (): Record<OpType, ProblemTemplate[]> => {
   });
   db[OpType.SUB] = cleanSub;
 
-  for (let i = 0; i <= 9; i++) {
-    for (let j = 0; j <= 9; j++) {
+  // 乘法：过滤掉 0 和 1，从 2 开始到 9
+  for (let i = 2; i <= 9; i++) {
+    for (let j = 2; j <= 9; j++) {
       db[OpType.MUL].push({ n1: i, n2: j, op: OpType.MUL, ans: i * j });
     }
   }
